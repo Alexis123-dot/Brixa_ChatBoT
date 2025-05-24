@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Brixa ChatBot Advanced</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/css/bootstrap.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     body {
@@ -23,6 +23,7 @@
       padding: 30px;
       border-radius: 15px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      transition: background 0.3s, color 0.3s;
     }
     .dark-mode .container {
       background: #2c2c2c;
@@ -33,13 +34,12 @@
     }
     #chatHistory {
       margin-top: 20px;
-      max-height: 300px;
+      max-height: 350px;
       overflow-y: auto;
       background-color: #f9f9f9;
       padding: 15px;
       border-radius: 10px;
       font-size: 1rem;
-      line-height: 1.4;
     }
     .dark-mode #chatHistory {
       background-color: #333;
@@ -51,29 +51,36 @@
       color: #007bff;
     }
     .dark-mode .bot {
-      color: #66aaff;
+      color: #66b2ff;
     }
     .user {
       font-weight: bold;
       color: #333;
     }
     .dark-mode .user {
-      color: #ddd;
+      color: #ccc;
     }
     .controls {
       display: flex;
       gap: 10px;
       margin-bottom: 15px;
     }
-    .spinner-border {
-      width: 1.5rem;
-      height: 1.5rem;
-      vertical-align: middle;
-      margin-left: 5px;
+    #userInput {
+      flex-grow: 1;
     }
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
+    .btn-block {
+      width: 100%;
+    }
+    /* Scrollbar style for chatHistory */
+    #chatHistory::-webkit-scrollbar {
+      width: 8px;
+    }
+    #chatHistory::-webkit-scrollbar-thumb {
+      background-color: #007bff;
+      border-radius: 4px;
+    }
+    .dark-mode #chatHistory::-webkit-scrollbar-thumb {
+      background-color: #66b2ff;
     }
   </style>
 </head>
@@ -82,10 +89,10 @@
     <h2>Brixa ChatBot 🤖</h2>
     <div class="form-group controls">
       <input type="text" class="form-control" id="userInput" placeholder="Ask me anything..." autocomplete="off" />
-      <button class="btn btn-secondary" type="button" onclick="startVoiceInput()" title="Voice Input">🎤</button>
-      <button class="btn btn-dark" type="button" onclick="toggleDarkMode()" title="Toggle Dark Mode">🌗</button>
+      <button class="btn btn-secondary" title="Start voice input" onclick="startVoiceInput()">🎤</button>
+      <button class="btn btn-dark" title="Toggle dark mode" onclick="toggleDarkMode()">🌗</button>
     </div>
-    <button class="btn btn-primary btn-block" id="askBtn" type="button" onclick="sendMessage()">Ask!</button>
+    <button class="btn btn-primary btn-block" id="askBtn" onclick="sendMessage()">Ask!</button>
     <div id="chatHistory"></div>
   </div>
 
@@ -99,27 +106,44 @@
       document.body.classList.toggle('dark-mode');
     }
 
-    function appendMessage(role, content, isMarkdown = false) {
+    // Append message to chat history with markdown parsing for bot
+    function appendMessage(role, content) {
       const msg = document.createElement('div');
-      msg.classList.add('message');
-      msg.classList.add(role === 'user' ? 'user' : 'bot');
-      if (isMarkdown) {
-        msg.innerHTML = `<strong>${role === 'user' ? 'You' : 'Brixa'}:</strong> ${marked.parse(content)}`;
+      msg.classList.add('message', role === 'user' ? 'user' : 'bot');
+
+      if (role === 'user') {
+        msg.innerHTML = `<strong>You:</strong> ${escapeHtml(content)}`;
       } else {
-        msg.innerHTML = `<strong>${role === 'user' ? 'You' : 'Brixa'}:</strong> ${content}`;
+        // Use marked to render markdown for bot responses
+        msg.innerHTML = `<strong>Brixa:</strong> ${marked.parse(content)}`;
       }
+
       chatHistory.appendChild(msg);
       chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
+    // Escape HTML for user input to prevent XSS
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Speech synthesis for bot message (strip markdown tags)
     function speak(text) {
-      if (!synth) return;
-      if (synth.speaking) synth.cancel();
-      const utter = new SpeechSynthesisUtterance(text.replace(/<[^>]+>/g, ''));
+      if (!synth) return; // Not supported
+
+      if (synth.speaking) {
+        synth.cancel(); // Stop current speech
+      }
+
+      const plainText = text.replace(/[#_*~`>-\[\]\(\)]+/g, '').replace(/<\/?[^>]+(>|$)/g, '');
+      const utter = new SpeechSynthesisUtterance(plainText);
       synth.speak(utter);
     }
 
-    function simulateTyping(text) {
+    // Simulate typing effect for bot with markdown support
+    async function simulateTyping(text) {
       return new Promise(resolve => {
         let index = 0;
         const container = document.createElement('div');
@@ -128,23 +152,25 @@
         chatHistory.appendChild(container);
         chatHistory.scrollTop = chatHistory.scrollHeight;
         const typingEl = container.querySelector('#typing-text');
-        const cleanText = text.replace(/\\n/g, '\n');
+        const plainText = text.replace(/\n/g, '<br>');
 
-        function typeChar() {
-          if (index < cleanText.length) {
-            const char = cleanText[index++];
-            typingEl.innerHTML += char === '\n' ? '<br/>' : char;
+        const interval = setInterval(() => {
+          if (index < plainText.length) {
+            typingEl.innerHTML += plainText[index++];
             chatHistory.scrollTop = chatHistory.scrollHeight;
-            setTimeout(typeChar, 30);
           } else {
+            clearInterval(interval);
+            // After typing complete, replace with rendered markdown
+            container.innerHTML = `<strong>Brixa:</strong> ${marked.parse(text)}`;
+            chatHistory.scrollTop = chatHistory.scrollHeight;
             speak(text);
             resolve();
           }
-        }
-        typeChar();
+        }, 20);
       });
     }
 
+    // Main send message handler
     async function sendMessage() {
       const input = userInput.value.trim();
       if (!input) return;
@@ -153,6 +179,7 @@
       userInput.value = '';
       askBtn.disabled = true;
 
+      // Identity question shortcut
       const identityPrompts = [
         'who are you',
         'what is your name',
@@ -163,16 +190,16 @@
 
       if (identityPrompts.some(q => normalizedInput.includes(q))) {
         const reply = "I'm **Brixander**, I came by the chemistry of **Alex** and **Bridget**. ❤️✨";
-        appendMessage('bot', reply, true);
+        await simulateTyping(reply);
         askBtn.disabled = false;
         return;
       }
 
-      // Show typing indicator with spinner
-      const typingDiv = document.createElement('div');
-      typingDiv.classList.add('message', 'bot');
-      typingDiv.innerHTML = `<strong>Brixa:</strong> Loading <span class="spinner-border text-primary" role="status"></span>`;
-      chatHistory.appendChild(typingDiv);
+      // Show temporary typing message
+      const typingMsg = document.createElement('div');
+      typingMsg.classList.add('message', 'bot');
+      typingMsg.innerHTML = `<strong>Brixa:</strong> <em>Typing...</em>`;
+      chatHistory.appendChild(typingMsg);
       chatHistory.scrollTop = chatHistory.scrollHeight;
 
       try {
@@ -191,33 +218,30 @@
         });
 
         const data = await response.json();
-        let text = data.choices?.[0]?.message?.content || 'Hmm, I didn’t catch that. Try asking again.';
-        // Remove spinner
-        typingDiv.remove();
 
-        // Use simulateTyping but show markdown output once typing finished
-        await simulateTyping(text);
+        // Remove typing message
+        typingMsg.remove();
 
-        // After typing animation, replace last bot message with parsed markdown
-        // Remove last bot message (with typing text)
-        chatHistory.lastChild.remove();
-        appendMessage('bot', text, true);
+        const botResponse = data.choices?.[0]?.message?.content || "Sorry, I didn't catch that. Please try again.";
+        await simulateTyping(botResponse);
 
       } catch (error) {
         console.error(error);
-        typingDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        typingMsg.remove();
+        appendMessage('bot', `<div class="alert alert-danger">Error: ${escapeHtml(error.message)}</div>`);
       } finally {
         askBtn.disabled = false;
       }
     }
 
+    // Voice input with Web Speech API
     function startVoiceInput() {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert('Speech recognition is not supported in your browser.');
+      if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+        alert('Speech recognition is not supported in this browser.');
         return;
       }
-      const recognition = new SpeechRecognition();
+
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
       recognition.lang = 'en-US';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
@@ -226,14 +250,15 @@
         userInput.value = event.results[0][0].transcript;
         sendMessage();
       };
-      recognition.onerror = e => {
-        console.error('Speech recognition error', e);
+      recognition.onerror = event => {
+        console.error('Speech recognition error', event.error);
       };
+
       recognition.start();
     }
 
-    // Allow Enter key to send message
-    userInput.addEventListener('keypress', (e) => {
+    // Optional: send on Enter key press
+    userInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
         sendMessage();
