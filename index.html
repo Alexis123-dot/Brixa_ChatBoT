@@ -1,18 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Brixa ChatBot 🤖</title>
+  <title>Brixa AI Chatbot (DeepSeek)</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; background: #eef6ff; }
-    #chat { max-width: 700px; margin: auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
-    input, button { padding: 10px; margin: 5px 0; width: 100%; }
-    #response { margin-top: 20px; padding: 10px; border-left: 4px solid #007bff; background: #f9f9f9; border-radius: 5px; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #eef6ff;
+      padding: 40px;
+    }
+    #chat {
+      background: #fff;
+      padding: 30px;
+      border-radius: 15px;
+      max-width: 800px;
+      margin: auto;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 15px;
+    }
+    #response {
+      margin-top: 30px;
+      padding: 20px;
+      font-size: 17px;
+      background: #f1f8ff;
+      border-left: 5px solid #007bff;
+      white-space: pre-wrap;
+      border-radius: 10px;
+    }
   </style>
 </head>
 <body>
   <div id="chat">
-    <h2>Brixa ChatBot 🤖</h2>
-    <input type="text" id="userInput" placeholder="Ask me anything..." />
+    <h2>🤖 Brixa AI – Powered by DeepSeek</h2>
+    <input type="text" id="userInput" placeholder="Ask me anything — maths, science, English, etc." />
     <button onclick="sendMessage()">Ask</button>
     <div id="response"></div>
   </div>
@@ -23,22 +47,13 @@
       const responseDiv = document.getElementById("response");
       if (!input) return;
 
-      responseDiv.innerHTML = "Thinking... 🤔";
-
-      // Identity check
-      const identityPrompts = ["who are you", "what is your name", "identify yourself"];
-      if (identityPrompts.some(q => input.toLowerCase().includes(q))) {
-        const identityReply = "I'm Brixander — your smart companion, born from the bond between Alex and Bridget ❤️.";
-        responseDiv.textContent = identityReply;
-        speak(identityReply);
-        return;
-      }
+      responseDiv.textContent = "Thinking... Please wait... 🤔";
 
       try {
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            "Authorization": "Bearer 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",  // Your key
+            "Authorization": "Bearer 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",
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
@@ -48,13 +63,17 @@
         });
 
         const data = await res.json();
-        const reply = data.choices?.[0]?.message?.content || "Hmm, I don’t know that yet. Try something else!";
+        const reply = data?.choices?.[0]?.message?.content;
+        if (!reply) {
+          responseDiv.textContent = "❌ No response received from DeepSeek.";
+          return;
+        }
+
         responseDiv.textContent = reply;
         speak(reply);
-
       } catch (err) {
-        console.error("Error:", err);
-        responseDiv.textContent = "Sorry, I couldn't connect to my brain! 🧠🔌";
+        console.error(err);
+        responseDiv.textContent = "⚠️ Error getting response from DeepSeek.";
       }
 
       document.getElementById("userInput").value = "";
