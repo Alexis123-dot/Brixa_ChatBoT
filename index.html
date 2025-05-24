@@ -1,88 +1,146 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Brixa AI Chatbot (DeepSeek)</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Brixa ChatBot</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/css/bootstrap.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #eef6ff;
-      padding: 40px;
+      background: #f0f8ff;
+      font-family: 'Segoe UI', sans-serif;
     }
-    #chat {
-      background: #fff;
+    .container {
+      margin-top: 50px;
+      max-width: 700px;
+      background: #ffffff;
       padding: 30px;
       border-radius: 15px;
-      max-width: 800px;
-      margin: auto;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     }
-    input, button {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      margin-top: 15px;
+    h2 {
+      text-align: center;
+      color: #007bff;
     }
-    #response {
-      margin-top: 30px;
-      padding: 20px;
-      font-size: 17px;
-      background: #f1f8ff;
-      border-left: 5px solid #007bff;
-      white-space: pre-wrap;
+    #chatHistory {
+      margin-top: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    .message {
+      margin-bottom: 15px;
+    }
+    .user-message {
+      text-align: right;
+      color: #333;
+    }
+    .bot-message {
+      text-align: left;
+      background: #f1f9ff;
+      padding: 10px 15px;
       border-radius: 10px;
+      display: inline-block;
+      border-left: 4px solid #007bff;
+    }
+    .typing {
+      font-style: italic;
+      color: #888;
+      margin-bottom: 10px;
+    }
+    .spinner-border {
+      width: 2rem;
+      height: 2rem;
     }
   </style>
 </head>
 <body>
-  <div id="chat">
-    <h2>🤖 Brixa AI – Powered by DeepSeek</h2>
-    <input type="text" id="userInput" placeholder="Ask me anything — maths, science, English, etc." />
-    <button onclick="sendMessage()">Ask</button>
-    <div id="response"></div>
+  <div class="container">
+    <h2>Brixa ChatBot</h2>
+    <div class="form-group">
+      <input type="text" class="form-control" id="userInput" placeholder="Ask me anything..." />
+    </div>
+    <button class="btn btn-primary btn-block" id="askBtn" onclick="sendMessage()">Ask!</button>
+    <div id="chatHistory"></div>
   </div>
 
   <script>
+    const chatHistory = document.getElementById('chatHistory');
+    const identityTriggers = [
+      'who are you', 'your name', 'what is your name', 'identify yourself', 'who created you', 'what are you'
+    ];
+
+    function appendMessage(content, sender) {
+      const msg = document.createElement('div');
+      msg.className = `message ${sender}-message`;
+      msg.innerHTML = sender === 'bot' ? `<div class="bot-message">${content}</div>` : `<strong>You:</strong> ${content}`;
+      chatHistory.appendChild(msg);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function showTyping() {
+      const typing = document.createElement('div');
+      typing.id = 'typing';
+      typing.className = 'typing';
+      typing.innerText = 'Brixander is typing...';
+      chatHistory.appendChild(typing);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function removeTyping() {
+      const typing = document.getElementById('typing');
+      if (typing) typing.remove();
+    }
+
     async function sendMessage() {
-      const input = document.getElementById("userInput").value.trim();
-      const responseDiv = document.getElementById("response");
+      const input = document.getElementById('userInput').value.trim();
+      const askBtn = document.getElementById('askBtn');
+
       if (!input) return;
 
-      responseDiv.textContent = "Thinking... Please wait... 🤔";
+      appendMessage(input, 'user');
+      document.getElementById('userInput').value = '';
+      askBtn.disabled = true;
+
+      const lowerInput = input.toLowerCase();
+      if (identityTriggers.some(trigger => lowerInput.includes(trigger))) {
+        showTyping();
+        setTimeout(() => {
+          removeTyping();
+          appendMessage("I'm Brixander, I came by the chemistry of Alex and Bridget 💑✨", 'bot');
+          askBtn.disabled = false;
+        }, 1200);
+        return;
+      }
+
+      showTyping();
 
       try {
-        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
           headers: {
-            "Authorization": "Bearer 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",
-            "Content-Type": "application/json"
+            Authorization: 'Bearer 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',
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: "deepseek/deepseek-chat",
-            messages: [{ role: "user", content: input }]
+            model: 'openai/gpt-3.5-turbo',
+            messages: [{ role: 'user', content: input }]
           })
         });
 
         const data = await res.json();
-        const reply = data?.choices?.[0]?.message?.content;
-        if (!reply) {
-          responseDiv.textContent = "❌ No response received from DeepSeek.";
-          return;
-        }
+        removeTyping();
 
-        responseDiv.textContent = reply;
-        speak(reply);
-      } catch (err) {
-        console.error(err);
-        responseDiv.textContent = "⚠️ Error getting response from DeepSeek.";
-      }
+        if (!res.ok) throw new Error(data.error?.message || 'API request failed.');
 
-      document.getElementById("userInput").value = "";
-    }
-
-    function speak(text) {
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        window.speechSynthesis.speak(utterance);
+        const reply = data.choices?.[0]?.message?.content || 'No response.';
+        appendMessage(marked.parse(reply), 'bot');
+      } catch (error) {
+        removeTyping();
+        appendMessage(`<div class="alert alert-danger">Error: ${error.message}</div>`, 'bot');
+      } finally {
+        askBtn.disabled = false;
       }
     }
   </script>
